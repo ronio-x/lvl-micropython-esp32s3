@@ -32,19 +32,19 @@ jobs:
 
           echo "Converting 9 Custom Fonts using lv_font_conv..."
           # Roboto Bold (20, 22, 24)
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
 
           # Roboto Regular (12, 16, 18)
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --font-name lv_font_roboto_12 -o lib/lvgl/src/font/lv_font_roboto_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --font-name lv_font_roboto_16 -o lib/lvgl/src/font/lv_font_roboto_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --font-name lv_font_roboto_18 -o lib/lvgl/src/font/lv_font_roboto_18.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_12 -o lib/lvgl/src/font/lv_font_roboto_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_16 -o lib/lvgl/src/font/lv_font_roboto_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_18 -o lib/lvgl/src/font/lv_font_roboto_18.c --no-kerning
 
           # Share Tech Mono (12, 16, 18)
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --font-name lv_font_sharetech_12 -o lib/lvgl/src/font/lv_font_sharetech_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --font-name lv_font_sharetech_16 -o lib/lvgl/src/font/lv_font_sharetech_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --font-name lv_font_sharetech_18 -o lib/lvgl/src/font/lv_font_sharetech_18.c --no-kerning
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_12 -o lib/lvgl/src/font/lv_font_sharetech_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_16 -o lib/lvgl/src/font/lv_font_sharetech_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_18 -o lib/lvgl/src/font/lv_font_sharetech_18.c --no-kerning
 
           echo "All 9 fonts generated successfully!"
 
@@ -73,7 +73,7 @@ jobs:
               with open(path, "r") as f:
                   content = f.read()
 
-              # Custom font declaration injection
+              # Custom font declaration
               content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", custom_font_decl.strip(), content)
 
               # PNG, BMP and Montserrat defaults
