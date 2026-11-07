@@ -109,3 +109,25 @@ jobs:
         with:
           name: S3-N16-Octal-CustomFonts-Firmware
           path: firmware_bin/*.bin
+      - name: Merge and Create Single Firmware Binary
+        run: |
+          mkdir -p output_firmware
+          # বিল্ড ফোল্ডার খুঁজে বের করা
+          BUILD_DIR=$(find lib/micropython/ports/esp32 -type d -name "build-ESP32_GENERIC_S3-SPIRAM_OCT" | head -n 1)
+          echo "Found build directory: $BUILD_DIR"
+
+          # ৩টি ফাইলকে মার্জ করে ১টি ফাইলে রূপান্তর
+          python3 -m esptool --chip esp32s3 merge_bin \
+            -o output_firmware/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin \
+            --flash_mode qio --flash_size 16MB \
+            0x0 $BUILD_DIR/bootloader/bootloader.bin \
+            0x8000 $BUILD_DIR/partition_table/partition-table.bin \
+            0x10000 $BUILD_DIR/micropython.bin
+
+          ls -lh output_firmware/
+
+      - name: Upload Firmware (.bin)
+        uses: actions/upload-artifact@v4
+        with:
+          name: S3-N16-Octal-CustomFonts-Firmware
+          path: output_firmware/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin
