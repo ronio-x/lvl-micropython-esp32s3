@@ -17,38 +17,9 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build nodejs npm
-          sudo npm install -g lv_font_conv
+          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
 
-      - name: Download and Generate Custom Fonts
-        run: |
-          mkdir -p fonts_ttf
-          mkdir -p lib/lvgl/src/font
-
-          echo "Downloading TTF Fonts from Google..."
-          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf" -o fonts_ttf/Roboto-Bold.ttf
-          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf" -o fonts_ttf/Roboto-Regular.ttf
-          curl -sSfL "https://github.com/google/fonts/raw/main/ofl/sharetechmono/ShareTechMono-Regular.ttf" -o fonts_ttf/ShareTechMono-Regular.ttf
-
-          echo "Converting 9 Custom Fonts using lv_font_conv..."
-          # Roboto Bold (20, 22, 24)
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
-
-          # Roboto Regular (12, 16, 18)
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_12 -o lib/lvgl/src/font/lv_font_roboto_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_16 -o lib/lvgl/src/font/lv_font_roboto_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_18 -o lib/lvgl/src/font/lv_font_roboto_18.c --no-kerning
-
-          # Share Tech Mono (12, 16, 18)
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_12 -o lib/lvgl/src/font/lv_font_sharetech_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_16 -o lib/lvgl/src/font/lv_font_sharetech_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_sharetech_18 -o lib/lvgl/src/font/lv_font_sharetech_18.c --no-kerning
-
-          echo "All 9 fonts generated successfully!"
-
-      - name: Configure LVGL (Declare Custom Fonts & Options)
+      - name: Configure LVGL (Enable Fonts 12-28px, UNSCII Mono, PNG, BMP)
         run: |
           python3 -c '
           import os, glob, re
@@ -56,35 +27,38 @@ jobs:
           conf_files = glob.glob("**/lv_conf.h", recursive=True)
           print("Found config files to patch:", conf_files)
 
-          custom_font_decl = """
-          #define LV_FONT_CUSTOM_DECLARE \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_20) \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_22) \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_24) \\
-              LV_FONT_DECLARE(lv_font_roboto_12) \\
-              LV_FONT_DECLARE(lv_font_roboto_16) \\
-              LV_FONT_DECLARE(lv_font_roboto_18) \\
-              LV_FONT_DECLARE(lv_font_sharetech_12) \\
-              LV_FONT_DECLARE(lv_font_sharetech_16) \\
-              LV_FONT_DECLARE(lv_font_sharetech_18)
-          """
+          features_to_enable = [
+              "LV_FONT_MONTSERRAT_12",
+              "LV_FONT_MONTSERRAT_14",
+              "LV_FONT_MONTSERRAT_16",
+              "LV_FONT_MONTSERRAT_18",
+              "LV_FONT_MONTSERRAT_20",
+              "LV_FONT_MONTSERRAT_22",
+              "LV_FONT_MONTSERRAT_24",
+              "LV_FONT_MONTSERRAT_28",
+              "LV_FONT_UNSCII_8",
+              "LV_FONT_UNSCII_16",
+              "LV_USE_PNG",
+              "LV_USE_BMP",
+              "LV_USE_LODEPNG",
+          ]
 
           for path in conf_files:
               with open(path, "r") as f:
                   content = f.read()
 
-              content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", custom_font_decl.strip(), content)
-
-              features = [
-                  "LV_FONT_MONTSERRAT_18", "LV_FONT_MONTSERRAT_20", "LV_FONT_MONTSERRAT_24",
-                  "LV_USE_PNG", "LV_USE_BMP", "LV_USE_LODEPNG"
-              ]
-              for feat in features:
-                  content = re.sub(rf"(#\s*define\s+{feat}\s+)0", r"\g<1>1", content)
+              for feat in features_to_enable:
+                  pattern = rf"(#\s*define\s+{feat}\s+)0"
+                  if re.search(pattern, content):
+                      content = re.sub(pattern, r"\g<1>1", content)
+                      print(f"  [ENABLED] {feat} in {path}")
+                  else:
+                      print(f"  [ALREADY_ON_OR_SET] {feat}")
 
               with open(path, "w") as f:
                   f.write(content)
-              print("Patched:", path)
+
+          print("Configuration patching complete successfully!")
           '
 
       - name: Compile N16 Firmware
@@ -95,39 +69,8 @@ jobs:
             --flash-size=16 \
             DISPLAY=ili9341
 
-      - name: Collect Output Firmware Files
-        run: |
-          mkdir -p firmware_bin
-          echo "=== Searching for generated .bin files ==="
-          # সব তৈরি হওয়া ফার্মওয়্যার ফাইল firmware_bin ফোল্ডারে কপি করা
-          find . -type f -name "*.bin" ! -path "*/esp-idf/*" -exec cp -v {} firmware_bin/ \;
-          echo "=== Collected Firmware Files ==="
-          ls -lh firmware_bin/
-
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
         with:
-          name: S3-N16-Octal-CustomFonts-Firmware
-          path: firmware_bin/*.bin
-      - name: Merge and Create Single Firmware Binary
-        run: |
-          mkdir -p output_firmware
-          # বিল্ড ফোল্ডার খুঁজে বের করা
-          BUILD_DIR=$(find lib/micropython/ports/esp32 -type d -name "build-ESP32_GENERIC_S3-SPIRAM_OCT" | head -n 1)
-          echo "Found build directory: $BUILD_DIR"
-
-          # ৩টি ফাইলকে মার্জ করে ১টি ফাইলে রূপান্তর
-          python3 -m esptool --chip esp32s3 merge_bin \
-            -o output_firmware/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin \
-            --flash_mode qio --flash_size 16MB \
-            0x0 $BUILD_DIR/bootloader/bootloader.bin \
-            0x8000 $BUILD_DIR/partition_table/partition-table.bin \
-            0x10000 $BUILD_DIR/micropython.bin
-
-          ls -lh output_firmware/
-
-      - name: Upload Firmware (.bin)
-        uses: actions/upload-artifact@v4
-        with:
-          name: S3-N16-Octal-CustomFonts-Firmware
-          path: output_firmware/lvgl_micropy_ESP32_GENERIC_S3-SPIRAM_OCT-16.bin
+          name: S3-N16-Octal-ILI9341-Firmware
+          path: build/*.bin
