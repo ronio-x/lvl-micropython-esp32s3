@@ -7,58 +7,32 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout Source
+      - name: Checkout LVGL MicroPython Source
         uses: actions/checkout@v4
         with:
           repository: kdschlosser/lvgl_micropython
           submodules: recursive
           fetch-depth: 1
 
+      - name: Checkout Custom Fonts from User Repo
+        uses: actions/checkout@v4
+        with:
+          path: user_repo
+
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build nodejs npm
-          sudo npm install -g lv_font_conv
+          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
 
-      - name: Download TTFs and Generate 9 Custom Fonts
+      - name: Inject Custom Fonts
         run: |
-          mkdir -p fonts_ttf
           mkdir -p lib/lvgl/src/font
+          echo "Copying custom font files from custom_fonts/ ..."
+          cp -v user_repo/custom_fonts/*.c lib/lvgl/src/font/
+          rm -rf user_repo
+          ls -la lib/lvgl/src/font/lv_font_*.c
 
-          echo "Downloading TTF Fonts..."
-          curl -sSfL "https://github.com/JetBrains/JetBrainsMono/raw/master/fonts/ttf/JetBrainsMono-Regular.ttf" -o fonts_ttf/JetBrainsMono-Regular.ttf
-          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf" -o fonts_ttf/Roboto-Bold.ttf
-          curl -sSfL "https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Regular.ttf" -o fonts_ttf/Inter-Regular.ttf
-
-          echo "Generating 9 Custom Fonts using lv_font_conv..."
-          # Roboto Bold (20, 22, 24 px)
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
-          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
-
-          # Inter Regular (12, 16, 18 px)
-          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_inter_12 -o lib/lvgl/src/font/lv_font_inter_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_inter_16 -o lib/lvgl/src/font/lv_font_inter_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_inter_18 -o lib/lvgl/src/font/lv_font_inter_18.c --no-kerning
-
-          # JetBrains Mono (12, 16, 18 px)
-          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_12 -o lib/lvgl/src/font/lv_font_jetbrains_12.c --no-kerning
-          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_16 -o lib/lvgl/src/font/lv_font_jetbrains_16.c --no-kerning
-          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_18 -o lib/lvgl/src/font/lv_font_jetbrains_18.c --no-kerning
-
-          # ফন্ট ফাইলগুলোর হেডার পাথ ফিক্স করা (LVGL v9 কম্প্যাটিবল)
-          sed -i 's/#include "lvgl.h"/#include "..\/..\/lvgl.h"/g' lib/lvgl/src/font/lv_font_*.c || true
-
-          # LVGL এর CMakeLists.txt-এ নতুন ৯টি সোর্স ফাইল সরাসরি রেজিস্টার করা
-          for f in lv_font_roboto_bold_20.c lv_font_roboto_bold_22.c lv_font_roboto_bold_24.c \
-                   lv_font_inter_12.c lv_font_inter_16.c lv_font_inter_18.c \
-                   lv_font_jetbrains_12.c lv_font_jetbrains_16.c lv_font_jetbrains_18.c; do
-            echo "src/font/$f" >> lib/lvgl/src/font/CMakeLists.txt || true
-          done
-
-          echo "Fonts generated and registered successfully!"
-
-      - name: Configure LVGL (Declare Fonts, PNG, BMP)
+      - name: Configure LVGL (Declare Custom Fonts & Enable PNG/BMP)
         run: |
           python3 -c '
           import os, glob, re
@@ -74,16 +48,16 @@ jobs:
               LV_FONT_DECLARE(lv_font_inter_12) \\
               LV_FONT_DECLARE(lv_font_inter_16) \\
               LV_FONT_DECLARE(lv_font_inter_18) \\
-              LV_FONT_DECLARE(lv_font_jetbrains_12) \\
-              LV_FONT_DECLARE(lv_font_jetbrains_16) \\
-              LV_FONT_DECLARE(lv_font_jetbrains_18)
+              LV_FONT_DECLARE(lv_font_sharetech_12) \\
+              LV_FONT_DECLARE(lv_font_sharetech_16) \\
+              LV_FONT_DECLARE(lv_font_sharetech_18)
           """
 
           for path in conf_files:
               with open(path, "r") as f:
                   content = f.read()
 
-              # Custom font declaration injection
+              # Custom font declaration
               content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", decl.strip(), content)
 
               # PNG, BMP and fallback font flags
