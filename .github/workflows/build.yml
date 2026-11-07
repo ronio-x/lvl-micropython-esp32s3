@@ -73,10 +73,8 @@ jobs:
               with open(path, "r") as f:
                   content = f.read()
 
-              # Custom font declaration
               content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", custom_font_decl.strip(), content)
 
-              # PNG, BMP and Montserrat defaults
               features = [
                   "LV_FONT_MONTSERRAT_18", "LV_FONT_MONTSERRAT_20", "LV_FONT_MONTSERRAT_24",
                   "LV_USE_PNG", "LV_USE_BMP", "LV_USE_LODEPNG"
@@ -97,8 +95,17 @@ jobs:
             --flash-size=16 \
             DISPLAY=ili9341
 
+      - name: Collect Output Firmware Files
+        run: |
+          mkdir -p firmware_bin
+          echo "=== Searching for generated .bin files ==="
+          # সব তৈরি হওয়া ফার্মওয়্যার ফাইল firmware_bin ফোল্ডারে কপি করা
+          find . -type f -name "*.bin" ! -path "*/esp-idf/*" -exec cp -v {} firmware_bin/ \;
+          echo "=== Collected Firmware Files ==="
+          ls -lh firmware_bin/
+
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
         with:
           name: S3-N16-Octal-CustomFonts-Firmware
-          path: build/*.bin
+          path: firmware_bin/*.bin
