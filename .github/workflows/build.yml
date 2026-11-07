@@ -17,48 +17,86 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
+          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build nodejs npm
+          sudo npm install -g lv_font_conv
 
-      - name: Configure LVGL (Enable Fonts 12-28px, UNSCII Mono, PNG, BMP)
+      - name: Download TTFs and Generate 9 Custom Fonts
+        run: |
+          mkdir -p fonts_ttf
+          mkdir -p lib/lvgl/src/font
+
+          echo "Downloading TTF Fonts..."
+          curl -sSfL "https://github.com/JetBrains/JetBrainsMono/raw/master/fonts/ttf/JetBrainsMono-Regular.ttf" -o fonts_ttf/JetBrainsMono-Regular.ttf
+          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf" -o fonts_ttf/Roboto-Bold.ttf
+          curl -sSfL "https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Regular.ttf" -o fonts_ttf/Inter-Regular.ttf
+
+          echo "Generating 9 Custom Fonts using lv_font_conv..."
+          # Roboto Bold (20, 22, 24 px)
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --lv-font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
+
+          # Inter Regular (12, 16, 18 px)
+          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_inter_12 -o lib/lvgl/src/font/lv_font_inter_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_inter_16 -o lib/lvgl/src/font/lv_font_inter_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/Inter-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_inter_18 -o lib/lvgl/src/font/lv_font_inter_18.c --no-kerning
+
+          # JetBrains Mono (12, 16, 18 px)
+          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_12 -o lib/lvgl/src/font/lv_font_jetbrains_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_16 -o lib/lvgl/src/font/lv_font_jetbrains_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/JetBrainsMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --lv-font-name lv_font_jetbrains_18 -o lib/lvgl/src/font/lv_font_jetbrains_18.c --no-kerning
+
+          # ফন্ট ফাইলগুলোর হেডার পাথ ফিক্স করা (LVGL v9 কম্প্যাটিবল)
+          sed -i 's/#include "lvgl.h"/#include "..\/..\/lvgl.h"/g' lib/lvgl/src/font/lv_font_*.c || true
+
+          # LVGL এর CMakeLists.txt-এ নতুন ৯টি সোর্স ফাইল সরাসরি রেজিস্টার করা
+          for f in lv_font_roboto_bold_20.c lv_font_roboto_bold_22.c lv_font_roboto_bold_24.c \
+                   lv_font_inter_12.c lv_font_inter_16.c lv_font_inter_18.c \
+                   lv_font_jetbrains_12.c lv_font_jetbrains_16.c lv_font_jetbrains_18.c; do
+            echo "src/font/$f" >> lib/lvgl/src/font/CMakeLists.txt || true
+          done
+
+          echo "Fonts generated and registered successfully!"
+
+      - name: Configure LVGL (Declare Fonts, PNG, BMP)
         run: |
           python3 -c '
           import os, glob, re
 
           conf_files = glob.glob("**/lv_conf.h", recursive=True)
-          print("Found config files to patch:", conf_files)
+          print("Patching config files:", conf_files)
 
-          features_to_enable = [
-              "LV_FONT_MONTSERRAT_12",
-              "LV_FONT_MONTSERRAT_14",
-              "LV_FONT_MONTSERRAT_16",
-              "LV_FONT_MONTSERRAT_18",
-              "LV_FONT_MONTSERRAT_20",
-              "LV_FONT_MONTSERRAT_22",
-              "LV_FONT_MONTSERRAT_24",
-              "LV_FONT_MONTSERRAT_28",
-              "LV_FONT_UNSCII_8",
-              "LV_FONT_UNSCII_16",
-              "LV_USE_PNG",
-              "LV_USE_BMP",
-              "LV_USE_LODEPNG",
-          ]
+          decl = """
+          #define LV_FONT_CUSTOM_DECLARE \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_20) \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_22) \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_24) \\
+              LV_FONT_DECLARE(lv_font_inter_12) \\
+              LV_FONT_DECLARE(lv_font_inter_16) \\
+              LV_FONT_DECLARE(lv_font_inter_18) \\
+              LV_FONT_DECLARE(lv_font_jetbrains_12) \\
+              LV_FONT_DECLARE(lv_font_jetbrains_16) \\
+              LV_FONT_DECLARE(lv_font_jetbrains_18)
+          """
 
           for path in conf_files:
               with open(path, "r") as f:
                   content = f.read()
 
-              for feat in features_to_enable:
-                  pattern = rf"(#\s*define\s+{feat}\s+)0"
-                  if re.search(pattern, content):
-                      content = re.sub(pattern, r"\g<1>1", content)
-                      print(f"  [ENABLED] {feat} in {path}")
-                  else:
-                      print(f"  [ALREADY_ON_OR_SET] {feat}")
+              # Custom font declaration injection
+              content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", decl.strip(), content)
+
+              # PNG, BMP and fallback font flags
+              features = [
+                  "LV_FONT_MONTSERRAT_12", "LV_FONT_MONTSERRAT_16", "LV_FONT_MONTSERRAT_20",
+                  "LV_USE_PNG", "LV_USE_BMP", "LV_USE_LODEPNG"
+              ]
+              for feat in features:
+                  content = re.sub(rf"(#\s*define\s+{feat}\s+)0", r"\g<1>1", content)
 
               with open(path, "w") as f:
                   f.write(content)
-
-          print("Configuration patching complete successfully!")
+              print("Patched:", path)
           '
 
       - name: Compile N16 Firmware
@@ -72,5 +110,5 @@ jobs:
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
         with:
-          name: S3-N16-Octal-ILI9341-Firmware
+          name: S3-N16-Octal-ILI9341-CustomFonts
           path: build/*.bin
