@@ -17,47 +17,76 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
+          sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build nodejs npm
+          sudo npm install -g lv_font_conv
 
-      - name: Configure LVGL (Enable TinyTTF, Large Fonts, PNG, BMP)
+      - name: Download and Generate Custom Fonts
+        run: |
+          mkdir -p fonts_ttf
+          mkdir -p lib/lvgl/src/font
+
+          echo "Downloading TTF Fonts from Google..."
+          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf" -o fonts_ttf/Roboto-Bold.ttf
+          curl -sSfL "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf" -o fonts_ttf/Roboto-Regular.ttf
+          curl -sSfL "https://github.com/google/fonts/raw/main/ofl/sharetechmono/ShareTechMono-Regular.ttf" -o fonts_ttf/ShareTechMono-Regular.ttf
+
+          echo "Converting 9 Custom Fonts using lv_font_conv..."
+          # Roboto Bold (20, 22, 24)
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 20 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_20 -o lib/lvgl/src/font/lv_font_roboto_bold_20.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 22 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_22 -o lib/lvgl/src/font/lv_font_roboto_bold_22.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Bold.ttf -r 0x20-0x7F --size 24 --bpp 4 --format lvgl --font-name lv_font_roboto_bold_24 -o lib/lvgl/src/font/lv_font_roboto_bold_24.c --no-kerning
+
+          # Roboto Regular (12, 16, 18)
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --font-name lv_font_roboto_12 -o lib/lvgl/src/font/lv_font_roboto_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --font-name lv_font_roboto_16 -o lib/lvgl/src/font/lv_font_roboto_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/Roboto-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --font-name lv_font_roboto_18 -o lib/lvgl/src/font/lv_font_roboto_18.c --no-kerning
+
+          # Share Tech Mono (12, 16, 18)
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 12 --bpp 4 --format lvgl --font-name lv_font_sharetech_12 -o lib/lvgl/src/font/lv_font_sharetech_12.c --no-kerning
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 16 --bpp 4 --format lvgl --font-name lv_font_sharetech_16 -o lib/lvgl/src/font/lv_font_sharetech_16.c --no-kerning
+          lv_font_conv --font fonts_ttf/ShareTechMono-Regular.ttf -r 0x20-0x7F --size 18 --bpp 4 --format lvgl --font-name lv_font_sharetech_18 -o lib/lvgl/src/font/lv_font_sharetech_18.c --no-kerning
+
+          echo "All 9 fonts generated successfully!"
+
+      - name: Configure LVGL (Declare Custom Fonts & Options)
         run: |
           python3 -c '
           import os, glob, re
 
-          # রিপোজিটরির সব lv_conf.h ফাইল খুঁজে বের করা
           conf_files = glob.glob("**/lv_conf.h", recursive=True)
           print("Found config files to patch:", conf_files)
 
-          # যে যে ফিচার অন করতে হবে
-          features_to_enable = [
-              "LV_USE_TINY_TTF",
-              "LV_TINY_TTF_FILE_SUPPORT",
-              "LV_FONT_MONTSERRAT_18",
-              "LV_FONT_MONTSERRAT_20",
-              "LV_FONT_MONTSERRAT_22",
-              "LV_FONT_MONTSERRAT_24",
-              "LV_FONT_MONTSERRAT_28",
-              "LV_USE_PNG",
-              "LV_USE_BMP",
-              "LV_USE_LODEPNG",
-          ]
+          custom_font_decl = """
+          #define LV_FONT_CUSTOM_DECLARE \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_20) \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_22) \\
+              LV_FONT_DECLARE(lv_font_roboto_bold_24) \\
+              LV_FONT_DECLARE(lv_font_roboto_12) \\
+              LV_FONT_DECLARE(lv_font_roboto_16) \\
+              LV_FONT_DECLARE(lv_font_roboto_18) \\
+              LV_FONT_DECLARE(lv_font_sharetech_12) \\
+              LV_FONT_DECLARE(lv_font_sharetech_16) \\
+              LV_FONT_DECLARE(lv_font_sharetech_18)
+          """
 
           for path in conf_files:
               with open(path, "r") as f:
                   content = f.read()
 
-              for feat in features_to_enable:
-                  pattern = rf"(#\s*define\s+{feat}\s+)0"
-                  if re.search(pattern, content):
-                      content = re.sub(pattern, r"\g<1>1", content)
-                      print(f"  [ENABLED] {feat} in {path}")
-                  else:
-                      print(f"  [SKIPPED/ALREADY ON] {feat}")
+              # Custom font declaration injection
+              content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", custom_font_decl.strip(), content)
+
+              # PNG, BMP and Montserrat defaults
+              features = [
+                  "LV_FONT_MONTSERRAT_18", "LV_FONT_MONTSERRAT_20", "LV_FONT_MONTSERRAT_24",
+                  "LV_USE_PNG", "LV_USE_BMP", "LV_USE_LODEPNG"
+              ]
+              for feat in features:
+                  content = re.sub(rf"(#\s*define\s+{feat}\s+)0", r"\g<1>1", content)
 
               with open(path, "w") as f:
                   f.write(content)
-
-          print("Configuration patching complete successfully!")
+              print("Patched:", path)
           '
 
       - name: Compile N16 Firmware
@@ -71,5 +100,5 @@ jobs:
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
         with:
-          name: S3-N16-Octal-ILI9341-Firmware-TinyTTF
+          name: S3-N16-Octal-CustomFonts-Firmware
           path: build/*.bin
