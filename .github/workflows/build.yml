@@ -24,13 +24,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
 
-      - name: Inject Custom Fonts
+      - name: Inject and Fix Custom Fonts Headers
         run: |
           mkdir -p lib/lvgl/src/font
-          echo "Copying custom font files from custom_fonts/ ..."
+          echo "Copying 9 font files from user_repo/custom_fonts/ ..."
           cp -v user_repo/custom_fonts/*.c lib/lvgl/src/font/
           rm -rf user_repo
-          ls -la lib/lvgl/src/font/lv_font_*.c
+
+          echo "Fixing include headers inside custom font C files..."
+          # কনভার্ট করা ফাইলের হেডার পাথ কম্পাইলারের সাথে ১০০% ম্যাচ করানো
+          python3 -c '
+          import glob
+
+          for c_file in glob.glob("lib/lvgl/src/font/lv_font_*.c"):
+              with open(c_file, "r") as f:
+                  code = f.read()
+
+              # LVGL v9 এর আসল ইন্টারনাল হেডার যুক্ত করা
+              replacement = """#include "../../lvgl.h"\n#include "lv_font.h"\n#include "lv_font_fmt_txt.h" """
+              if "#include \"lvgl.h\"" in code:
+                  code = code.replace("#include \"lvgl.h\"", replacement)
+              elif "#include \"lvgl/lvgl.h\"" in code:
+                  code = code.replace("#include \"lvgl/lvgl.h\"", replacement)
+
+              with open(c_file, "w") as f:
+                  f.write(code)
+              print("Fixed header in:", c_file)
+          '
 
       - name: Configure LVGL (Declare Custom Fonts & Enable PNG/BMP)
         run: |
@@ -40,27 +60,27 @@ jobs:
           conf_files = glob.glob("**/lv_conf.h", recursive=True)
           print("Patching config files:", conf_files)
 
-          decl = """
-          #define LV_FONT_CUSTOM_DECLARE \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_20) \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_22) \\
-              LV_FONT_DECLARE(lv_font_roboto_bold_24) \\
-              LV_FONT_DECLARE(lv_font_inter_12) \\
-              LV_FONT_DECLARE(lv_font_inter_16) \\
-              LV_FONT_DECLARE(lv_font_inter_18) \\
-              LV_FONT_DECLARE(lv_font_sharetech_12) \\
-              LV_FONT_DECLARE(lv_font_sharetech_16) \\
-              LV_FONT_DECLARE(lv_font_sharetech_18)
-          """
+          decl_lines = "\n".join([
+              "#define LV_FONT_CUSTOM_DECLARE \\",
+              "    LV_FONT_DECLARE(lv_font_roboto_bold_20) \\",
+              "    LV_FONT_DECLARE(lv_font_roboto_bold_22) \\",
+              "    LV_FONT_DECLARE(lv_font_roboto_bold_24) \\",
+              "    LV_FONT_DECLARE(lv_font_inter_12) \\",
+              "    LV_FONT_DECLARE(lv_font_inter_16) \\",
+              "    LV_FONT_DECLARE(lv_font_inter_18) \\",
+              "    LV_FONT_DECLARE(lv_font_sharetech_12) \\",
+              "    LV_FONT_DECLARE(lv_font_sharetech_16) \\",
+              "    LV_FONT_DECLARE(lv_font_sharetech_18)"
+          ])
 
           for path in conf_files:
               with open(path, "r") as f:
                   content = f.read()
 
-              # Custom font declaration
-              content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", decl.strip(), content)
+              # Replace LV_FONT_CUSTOM_DECLARE safely
+              content = re.sub(r"#\s*define\s+LV_FONT_CUSTOM_DECLARE.*", decl_lines, content)
 
-              # PNG, BMP and fallback font flags
+              # PNG, BMP and fallback fonts
               features = [
                   "LV_FONT_MONTSERRAT_12", "LV_FONT_MONTSERRAT_16", "LV_FONT_MONTSERRAT_20",
                   "LV_USE_PNG", "LV_USE_BMP", "LV_USE_LODEPNG"
@@ -70,7 +90,7 @@ jobs:
 
               with open(path, "w") as f:
                   f.write(content)
-              print("Patched:", path)
+              print("Successfully patched:", path)
           '
 
       - name: Compile N16 Firmware
@@ -80,6 +100,10 @@ jobs:
             BOARD_VARIANT=SPIRAM_OCT \
             --flash-size=16 \
             DISPLAY=ili9341
+
+          # ফাইল সত্যিই তৈরি হয়েছে কি না তা নিশ্চিত করা
+          echo "=== Verifying generated binary ==="
+          ls -lh build/*.bin
 
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
