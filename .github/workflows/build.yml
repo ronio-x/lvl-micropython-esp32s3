@@ -1,4 +1,4 @@
-name: Build ESP32-S3 N16 Ultimate Master Firmware
+name: Build ESP32-S3 N16 ILI9341 Ultimate Firmware
 
 on:
   workflow_dispatch:
@@ -18,41 +18,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git wget curl make cmake python3 python3-pip ninja-build
-
-      - name: Force Inject 2-Slot 16MB Partition Table (3.5MB + 3.5MB + 8.9MB)
-        run: |
-          python3 -c '
-          import os, glob
-
-          # ২-স্লট ৩.৫ MB + ৩.৫ MB ও ৮.৮৭ MB স্টোরেজ টেবিল
-          table_lines = [
-              "# ESP32-S3 16MB 2-Slot Multi-OS Partition Table",
-              "# Name,   Type, SubType, Offset,   Size,     Flags",
-              "nvs,      data, nvs,     0x9000,   0x6000,",
-              "otadata,  data, ota,     0xf000,   0x2000,",
-              "ota_0,    app,  ota_0,   0x20000,  0x380000,",
-              "ota_1,    app,  ota_1,   0x3a0000, 0x380000,",
-              "vfs,      data, fat,     0x720000, 0x8e0000,"
-          ]
-          new_table = "\n".join(table_lines) + "\n"
-
-          # মাইক্রোপাইথনের সব সম্ভাব্য পার্টিশন ফাইলে সরাসরি ওভাররাইট করা
-          target_patterns = [
-              "**/partitions-16MiB.csv",
-              "**/partitions*.csv",
-              "**/boards/**/partitions*.csv"
-          ]
-
-          patched_count = 0
-          for pattern in target_patterns:
-              for f in glob.glob(pattern, recursive=True):
-                  with open(f, "w") as pf:
-                      pf.write(new_table)
-                  print(">>> Force Patched Partition Table into:", f)
-                  patched_count += 1
-
-          print(f"Total {patched_count} partition files successfully updated!")
-          '
 
       - name: Configure LVGL All-in-One Safe Features
         run: |
@@ -87,16 +52,19 @@ jobs:
               print("Patched LVGL Features in:", path)
           '
 
-      - name: Compile N16 Firmware
+      - name: Compile N16 Firmware (2-Slot 3.5MB OTA Multi-OS)
         run: |
           python3 make.py esp32 \
             BOARD=ESP32_GENERIC_S3 \
             BOARD_VARIANT=SPIRAM_OCT \
             --flash-size=16 \
-            DISPLAY=ili9341
+            DISPLAY=ili9341 \
+            --ota \
+            --partition-size=3670016 \
+            --skip-partition-resize
 
       - name: Upload Firmware (.bin)
         uses: actions/upload-artifact@v4
         with:
-          name: S3-N16-Octal-Ultimate-Master-Firmware
+          name: S3-N16-Octal-Ultimate-Firmware
           path: build/*.bin
